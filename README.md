@@ -118,7 +118,7 @@ See the project brief for full submission requirements.
 
 ---
 
-## Bugs Fixed In Simple Terms
+## Bugs Fixed
 
 - **Listening streaks:** The app used to reset a streak when someone listened on Sunday after listening on Saturday; I fixed it by treating every next calendar day the same, so Saturday-to-Sunday now counts as consecutive.
 - **Friends Listening Now:** The app used a rolling 24-hour window, which could show a friend from yesterday; I fixed it by only showing listening events from the current UTC day.
