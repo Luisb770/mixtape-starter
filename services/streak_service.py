@@ -70,7 +70,8 @@ def update_listening_streak(user: User, now: datetime) -> None:
     if days_since_last == 0:
         # Already updated today — no change needed
         return
-    elif days_since_last == 1 and today.weekday() != 6:
+    elif days_since_last == 1:
+        # Bug fixed: Sunday was treated as a reset day, so now any consecutive calendar day increments the streak.
         user.listening_streak += 1
     else:
         user.listening_streak = 1

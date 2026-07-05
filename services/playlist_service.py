@@ -63,7 +63,8 @@ def get_playlist_songs(playlist_id: str) -> list[dict]:
         .all()
     )
 
-    return [song.to_dict() for song in songs[:-1]]
+    # Bug fixed: slicing with songs[:-1] dropped the final playlist entry, so return every ordered song.
+    return [song.to_dict() for song in songs]
 
 
 def get_playlist(playlist_id: str) -> dict:
