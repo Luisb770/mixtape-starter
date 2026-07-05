@@ -6,8 +6,8 @@ Notifications are generated when friends interact with a user's shared songs.
 """
 
 from app import db
-from models import Notification, Song, User, Rating
-from sqlalchemy import desc
+from models import Notification, Song, User, Rating, playlist_entries
+from sqlalchemy import desc, func
 
 
 def create_notification(user_id: str, notification_type: str, body: str) -> Notification:
@@ -42,7 +42,6 @@ def add_to_playlist(playlist_id: str, song_id: str, added_by_user_id: str) -> No
         added_by_user_id: The ID of the user who added the song.
     """
     from models import Playlist
-    from services.playlist_service import get_playlist_songs
 
     song = db.session.get(Song, song_id)
     if not song:
@@ -57,8 +56,29 @@ def add_to_playlist(playlist_id: str, song_id: str, added_by_user_id: str) -> No
         raise ValueError(f"Playlist {playlist_id} not found")
 
     # Add the song to the playlist
-    if song not in playlist.songs:
-        playlist.songs.append(song)
+    exists = db.session.execute(
+        db.select(db.literal(True)).select_from(playlist_entries).where(
+            playlist_entries.c.playlist_id == playlist_id,
+            playlist_entries.c.song_id == song_id,
+        )
+    ).scalar()
+
+    if not exists:
+        next_position = (
+            db.session.query(func.max(playlist_entries.c.position))
+            .filter(playlist_entries.c.playlist_id == playlist_id)
+            .scalar()
+            or 0
+        ) + 1
+        # Bug fixed: adding through playlist.songs skipped required entry metadata, so insert the position and added_by values directly.
+        db.session.execute(
+            playlist_entries.insert().values(
+                playlist_id=playlist_id,
+                song_id=song_id,
+                position=next_position,
+                added_by=added_by_user_id,
+            )
+        )
         db.session.commit()
 
     # Notify the person who originally shared the song (if it wasn't them who added it)
@@ -106,6 +126,14 @@ def rate_song(user_id: str, song_id: str, score: int) -> Rating:
         db.session.add(rating)
 
     db.session.commit()
+
+    # Bug fixed: ratings did not notify the original sharer, so create a notification when someone else rates their song.
+    if song.shared_by != user_id:
+        create_notification(
+            user_id=song.shared_by,
+            notification_type="song_rated",
+            body=f"{rater.username} rated your song '{song.title}' {score}/5.",
+        )
 
     return rating
 
